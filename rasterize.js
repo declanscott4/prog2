@@ -14,6 +14,7 @@ var vertexBuffer; // this contains vertex coordinates in triples
 var triangleBuffer; // this contains indices into vertexBuffer in triples
 var triBufferSize; // the number of indices in the triangle buffer
 var vertexPositionAttrib; // where to put position for vertex shader
+var vertexColorAttrib; // where to put color for vertex shader
 var colorBuffer; // this contains vertex colors in triples
 
 // ASSIGNMENT HELPER FUNCTIONS
@@ -78,9 +79,11 @@ function loadTriangles() {
         var colorArray = [];
         var triIndexArray = [];
         var vertexCounter = 0; // keep count of # of vertices processed so far
+        var indexOffset = vec3.create();
+        var triToAdd = vec3.create();
         
         for (var whichSet=0; whichSet<inputTriangles.length; whichSet++) {
-            
+            vec3.set(indexOffset,vertexCounter,vertexCounter,vertexCounter); // update vertex offset
             // set up the vertex coord array
             for (whichSetVert=0; whichSetVert<inputTriangles[whichSet].vertices.length; whichSetVert++){
                 coordArray = coordArray.concat(inputTriangles[whichSet].vertices[whichSetVert]);
@@ -88,10 +91,8 @@ function loadTriangles() {
                 // console.log(inputTriangles[whichSet].vertices[whichSetVert]);
             }
             for(whichSetTri=0; whichSetTri<inputTriangles[whichSet].triangles.length; whichSetTri++){
-                var tri = inputTriangles[whichSet].triangles[whichSetTri];
-                triIndexArray.push(tri[0] + vertexCounter);
-                triIndexArray.push(tri[1] + vertexCounter);
-                triIndexArray.push(tri[2] + vertexCounter);
+                vec3.add(triToAdd,indexOffset,inputTriangles[whichSet].triangles[whichSetTri]);
+                triIndexArray.push(triToAdd[0],triToAdd[1],triToAdd[2]);
             }
             vertexCounter += inputTriangles[whichSet].vertices.length;
         } // end for each triangle set 
@@ -120,17 +121,22 @@ function setupShaders() {
     
     // define fragment shader in essl using es6 template strings
     var fShaderCode = `
+        precision mediump float;
+        varying vec3 fragColor;
+
         void main(void) {
-            gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0); // all fragments are white
+            gl_FragColor = vec4(fragColor, 1.0); // use the interpolated color
         }
     `;
     
     // define vertex shader in essl using es6 template strings
     var vShaderCode = `
         attribute vec3 vertexPosition;
-
+        attribute vec3 vertexColor;
+        varying vec3 fragColor;
         void main(void) {
             gl_Position = vec4(vertexPosition, 1.0); // use the untransformed position
+            fragColor = vertexColor; // pass color to fragment shader
         }
     `;
     
@@ -164,6 +170,10 @@ function setupShaders() {
                 vertexPositionAttrib = // get pointer to vertex shader input
                     gl.getAttribLocation(shaderProgram, "vertexPosition"); 
                 gl.enableVertexAttribArray(vertexPositionAttrib); // input to shader from array
+                // Do the same for COLOR
+                vertexColorAttrib = 
+                    gl.getAttribLocation(shaderProgram, "vertexColor"); 
+                gl.enableVertexAttribArray(vertexColorAttrib); // input to shader from array
             } // end if no shader program link errors
         } // end if no compile errors
     } // end try 
@@ -179,7 +189,12 @@ function renderTriangles() {
     
     // vertex buffer: activate and feed into vertex shader
     gl.bindBuffer(gl.ARRAY_BUFFER,vertexBuffer); // activate
-    gl.vertexAttribPointer(vertexPositionAttrib,3,gl.FLOAT,false,0,0); // feed
+    gl.vertexAttribPointer(vertexPositionAttrib,3,gl.FLOAT,false,0,0); // feed\
+
+    // Color buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER,colorBuffer); // activate
+    gl.vertexAttribPointer(vertexColorAttrib,3,gl.FLOAT,false,0,0); // feed
+
 
     // triangle buffer: activate and feed into vertex shader
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,triangleBuffer); // activate
