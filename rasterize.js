@@ -70,8 +70,8 @@ function setupWebGL() {
 } // end setupWebGL
 
 // read triangles in, load them into webgl buffers
-function loadTriangles() {
-    var inputTriangles = getJSONFile(INPUT_TRIANGLES_URL,"triangles");
+function loadTriangles(customTriangles) {
+    var inputTriangles = customTriangles || getJSONFile(INPUT_TRIANGLES_URL,"triangles");
     if (inputTriangles != String.null) { 
         var whichSetVert; // index of vertex in current triangle set
         var whichSetTri; // index of triangle in current triangle set
@@ -87,7 +87,10 @@ function loadTriangles() {
             // set up the vertex coord array
             for (whichSetVert=0; whichSetVert<inputTriangles[whichSet].vertices.length; whichSetVert++){
                 coordArray = coordArray.concat(inputTriangles[whichSet].vertices[whichSetVert]);
-                colorArray = colorArray.concat(inputTriangles[whichSet].material.diffuse);
+                if (inputTriangles[whichSet].colors) // my scene: a color for each vertex
+                    colorArray = colorArray.concat(inputTriangles[whichSet].colors[whichSetVert]);
+                else // input file: one diffuse color for the whole set
+                    colorArray = colorArray.concat(inputTriangles[whichSet].material.diffuse);
                 // console.log(inputTriangles[whichSet].vertices[whichSetVert]);
             }
             for(whichSetTri=0; whichSetTri<inputTriangles[whichSet].triangles.length; whichSetTri++){
@@ -211,4 +214,14 @@ function main() {
   setupShaders(); // setup the webGL shaders
   renderTriangles(); // draw the triangles using webGL
   
+  // Part 5: space bar switches between the input triangles and BMO
+  var showingMyScene = false;
+  document.addEventListener("keydown", function(event) {
+    if (event.code === "Space") {
+      event.preventDefault(); // stop space from scrolling the page
+      showingMyScene = !showingMyScene;
+      loadTriangles(showingMyScene ? bmoScene : null);
+      renderTriangles();
+    }
+  });
 } // end main
